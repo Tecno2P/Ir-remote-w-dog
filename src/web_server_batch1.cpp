@@ -139,7 +139,7 @@ void WebUI::handleV1Status(AsyncWebServerRequest* req) {
     doc["uptime_s"]     = (uint32_t)(millis() / 1000);
     doc["heap_free"]    = ESP.getFreeHeap();
     doc["heap_min"]     = ESP.getMinFreeHeap();
-    doc["cpu_mhz"]      = ESP.getCpuFreqMHz();
+    doc["cpu_mhz"]      = getCpuFrequencyMhz();
     doc["chip"]         = ESP.getChipModel();
     doc["flash_mb"]     = (uint32_t)(ESP.getFlashChipSize() >> 20);
 
@@ -322,7 +322,7 @@ void WebUI::handleV1SystemInfo(AsyncWebServerRequest* req) {
     doc["firmware"]       = FIRMWARE_VERSION;
     doc["chip_model"]     = ESP.getChipModel();
     doc["chip_rev"]       = ESP.getChipRevision();
-    doc["cpu_mhz"]        = ESP.getCpuFreqMHz();
+    doc["cpu_mhz"]        = getCpuFrequencyMhz();
     doc["flash_size_mb"]  = (uint32_t)(ESP.getFlashChipSize() >> 20);
     doc["heap_free"]      = ESP.getFreeHeap();
     doc["heap_total"]     = ESP.getHeapSize();
@@ -468,7 +468,7 @@ void WebUI::handleDebugStats(AsyncWebServerRequest* req) {
 
     // CPU
     JsonObject cpu = doc["cpu"].to<JsonObject>();
-    cpu["freq_mhz"]  = ESP.getCpuFreqMHz();
+    cpu["freq_mhz"]  = getCpuFrequencyMhz();
     cpu["chip"]      = ESP.getChipModel();
     cpu["cores"]     = 2;
     cpu["sdk"]       = ESP.getSdkVersion();

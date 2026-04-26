@@ -266,7 +266,7 @@ void WebUI::setupAiRoutes() {
                     vTaskDelete(NULL);
                 },
                 "ai_chat_http",
-                10240,        // 10 KB stack — needs room for JSON + HTTPS buffers
+                12288,        // 12 KB stack: WiFiClientSecure(~8KB)+JSON+ArduinoJson buffers
                 chatReq,
                 1,
                 NULL

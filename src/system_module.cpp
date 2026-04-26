@@ -225,8 +225,8 @@ String SystemModule::getStatusJson() const {
     doc["ok"]         = true;
     doc["heap"]       = ESP.getFreeHeap();
     doc["uptime"]     = millis() / 1000;
-    doc["cpuMhz"]     = ESP.getCpuFreqMHz();
-    doc["cpuFreq"]    = ESP.getCpuFreqMHz();
+    doc["cpuMhz"]     = getCpuFrequencyMhz();
+    doc["cpuFreq"]    = getCpuFrequencyMhz();
     doc["chip"]       = ESP.getChipModel();
     doc["chipModel"]  = ESP.getChipModel();
     doc["firmware"]   = FIRMWARE_VERSION;

@@ -334,7 +334,7 @@ static void onScheduleFire(const ScheduleEntry& entry) {
 
     for (uint8_t i = 0; i < fireCount; ++i) {
         irTransmitter.transmit(copy);
-        if (i + 1 < fireCount && fireDelay > 0) delay(fireDelay);
+        if (i + 1 < fireCount && fireDelay > 0) vTaskDelay(pdMS_TO_TICKS(fireDelay));
     }
 
     webUI.broadcastMessage(String("Scheduled TX: ") + copy.name);
@@ -354,7 +354,7 @@ static void printBanner() {
     Serial.printf("Version: %s\n", FIRMWARE_VERSION);
     Serial.printf("Chip: %s rev%d %uMHz  Flash:%uMB  Heap:%u\n",
                   ESP.getChipModel(), ESP.getChipRevision(),
-                  ESP.getCpuFreqMHz(),
+                  getCpuFrequencyMhz(),
                   (unsigned)(ESP.getFlashChipSize() >> 20),
                   ESP.getFreeHeap());
 }

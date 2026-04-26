@@ -726,7 +726,7 @@ void AiAssistant::chat(const String& userMsg, AiResponseCallback cb) {
         if (a->cb) a->cb(ok, ok ? reply : "", ok ? "" : reply);
         delete a;
         vTaskDelete(NULL);
-    }, "ai_chat", 8192, args, 1, NULL);
+    }, "ai_chat", 12288, args, 1, NULL);  // 12 KB: WiFiClientSecure(~8KB)+JSON+buffers
 }
 
 String AiAssistant::historyJson() const {

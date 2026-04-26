@@ -25,7 +25,7 @@
 
 #define NOTIFY_CFG_FILE     "/notify_config.json"
 #define NOTIFY_QUEUE_MAX    10      // max pending messages
-#define NOTIFY_TIMEOUT_MS   8000   // HTTP timeout per message
+#define NOTIFY_TIMEOUT_MS   5000   // HTTP timeout per message
 #define NOTIFY_RETRY_DELAY  30000  // ms between retry attempts
 #define NOTIFY_TAG          "[NOTIFY]"
 
