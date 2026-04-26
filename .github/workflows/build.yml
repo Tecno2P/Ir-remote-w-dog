@@ -1,0 +1,275 @@
+name: 🔨 Build IR Remote Firmware
+
+# ── Triggers ─────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FIRMWARE_VERSION: "5.0.0"
+  PIO_ENV: esp32dev
+  PIO_VERSION: "6.1.16"
+  # Partition layout v5.0 — must match partitions_custom.csv exactly
+  APP_PART_KB: "1408"
+  FS_PART_KB:  "752"
+  FS_ADDR:     "0x2D0000"
+
+jobs:
+  build:
+    name: "Compile Firmware + LittleFS"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+
+      - name: "📥 Checkout"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: "🐍 Set up Python 3.12"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: "📦 Install PlatformIO"
+        run: |
+          python -m pip install --upgrade pip
+          pip install "platformio==${{ env.PIO_VERSION }}"
+          pio --version
+
+      - name: "🗄️ Cache PlatformIO"
+        id: cache-pio
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: ${{ runner.os }}-pio-${{ env.PIO_VERSION }}-${{ hashFiles('platformio.ini') }}-v5
+          restore-keys: |
+            ${{ runner.os }}-pio-${{ env.PIO_VERSION }}-
+            ${{ runner.os }}-pio-
+
+      - name: "ℹ️ Cache status"
+        run: |
+          if [ "${{ steps.cache-pio.outputs.cache-hit }}" == "true" ]; then
+            echo "✅ Cache hit — toolchain restored from cache"
+          else
+            echo "⚠️  Cache miss — downloading toolchain (~3 min)"
+          fi
+
+      - name: "✅ Validate partition table"
+        run: |
+          python3 - << 'PYEOF'
+          parts = [
+              ('nvs',     0x9000,   0x5000),
+              ('otadata', 0xe000,   0x2000),
+              ('app0',    0x10000,  0x160000),
+              ('app1',    0x170000, 0x160000),
+              ('spiffs',  0x2D0000, 0xBC000),
+          ]
+          FLASH = 4 * 1024 * 1024
+          ok = True
+          for i, (name, offset, size) in enumerate(parts):
+              end = offset + size
+              if end > FLASH:
+                  print(f"❌ {name} OVERFLOWS flash at 0x{end:06X}")
+                  ok = False
+              if i > 0:
+                  prev_end = parts[i-1][1] + parts[i-1][2]
+                  if offset != prev_end:
+                      print(f"❌ GAP between {parts[i-1][0]} and {name}")
+                      ok = False
+              print(f"  {name:10} 0x{offset:06X} -> 0x{end:06X}  ({size//1024} KB)")
+          if ok:
+              print("✅ Partition table validated — no gaps, no overflow")
+          else:
+              import sys; sys.exit(1)
+          PYEOF
+
+      - name: "⚙️ Build firmware"
+        run: |
+          pio run -e ${{ env.PIO_ENV }} 2>&1 | tee build_firmware.log
+          test ${PIPESTATUS[0]} -eq 0
+        env:
+          PLATFORMIO_CI: "1"
+          PLATFORMIO_NO_ANSI: "1"
+
+      - name: "🗂️ Build LittleFS image"
+        run: |
+          pio run -e ${{ env.PIO_ENV }} --target buildfs 2>&1 | tee build_littlefs.log
+          test ${PIPESTATUS[0]} -eq 0
+        env:
+          PLATFORMIO_CI: "1"
+          PLATFORMIO_NO_ANSI: "1"
+
+      - name: "🔍 Verify build outputs"
+        run: |
+          echo "=== Build outputs ==="
+          ls -lh .pio/build/${{ env.PIO_ENV }}/
+          for f in firmware.bin bootloader.bin partitions.bin littlefs.bin; do
+            if [ ! -f ".pio/build/${{ env.PIO_ENV }}/$f" ]; then
+              echo "❌ MISSING: $f"
+              exit 1
+            else
+              echo "✅ Found: $f ($(du -h .pio/build/${{ env.PIO_ENV }}/$f | cut -f1))"
+            fi
+          done
+
+      - name: "📊 Binary size report"
+        run: |
+          echo "============================================"
+          echo "  Binary Size Report — v${{ env.FIRMWARE_VERSION }}"
+          echo "  Partition layout v5.0 (4 MB ESP32)"
+          echo "============================================"
+          FW=$(stat -c%s .pio/build/${{ env.PIO_ENV }}/firmware.bin)
+          FW_MAX=$(( ${{ env.APP_PART_KB }} * 1024 ))
+          FW_PCT=$(( FW * 100 / FW_MAX ))
+          FW_FREE=$(( (FW_MAX - FW) / 1024 ))
+          FS=$(stat -c%s .pio/build/${{ env.PIO_ENV }}/littlefs.bin)
+          FS_MAX=$(( ${{ env.FS_PART_KB }} * 1024 ))
+          FS_PCT=$(( FS * 100 / FS_MAX ))
+          FS_FREE=$(( (FS_MAX - FS) / 1024 ))
+          echo "firmware.bin  : $(numfmt --to=iec $FW) / ${{ env.APP_PART_KB }} KB  (${FW_PCT}% used, ${FW_FREE} KB free for OTA)"
+          echo "littlefs.bin  : $(numfmt --to=iec $FS) / ${{ env.FS_PART_KB }} KB   (${FS_PCT}% used, ${FS_FREE} KB free)"
+          echo "============================================"
+          if [ $FW -gt $FW_MAX ]; then
+            echo "❌ FATAL: firmware.bin exceeds OTA partition (${{ env.APP_PART_KB }} KB)!"
+            exit 1
+          fi
+          if [ $FW_PCT -gt 90 ]; then
+            echo "⚠️  WARNING: firmware partition >90% full — OTA headroom low"
+          else
+            echo "✅ Firmware fits in OTA partition with headroom"
+          fi
+
+      - name: "📁 Collect binaries"
+        run: |
+          mkdir -p release_bins
+          cp .pio/build/${{ env.PIO_ENV }}/firmware.bin    release_bins/firmware.bin
+          cp .pio/build/${{ env.PIO_ENV }}/bootloader.bin  release_bins/bootloader.bin
+          cp .pio/build/${{ env.PIO_ENV }}/partitions.bin  release_bins/partitions.bin
+          cp .pio/build/${{ env.PIO_ENV }}/littlefs.bin    release_bins/littlefs.bin
+          cat > release_bins/BUILD_INFO.txt << EOF
+          IR Remote Web GUI v${{ env.FIRMWARE_VERSION }}
+          Build   : #${{ github.run_number }}
+          Commit  : ${{ github.sha }}
+          Branch  : ${{ github.ref_name }}
+          Date    : $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          PIO     : ${{ env.PIO_VERSION }}
+          Target  : ESP32-WROOM-32 (4 MB Flash)
+
+          Partition layout v5.0:
+            nvs       0x009000   20 KB
+            otadata   0x00E000    8 KB
+            app0      0x010000 1408 KB  ← firmware slot
+            app1      0x170000 1408 KB  ← OTA slot
+            spiffs    0x2D0000  752 KB  ← LittleFS
+
+          Flash addresses (esptool):
+            0x1000   bootloader.bin
+            0x8000   partitions.bin
+            0x10000  firmware.bin
+            0x2D0000 littlefs.bin
+          EOF
+          ls -lh release_bins/
+
+      - name: "📤 Upload build artifacts"
+        uses: actions/upload-artifact@v4
+        with:
+          name: "IR-Remote-v${{ env.FIRMWARE_VERSION }}-build-${{ github.run_number }}"
+          path: release_bins/
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: "📋 Upload build logs on failure"
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "build-logs-run-${{ github.run_number }}"
+          path: |
+            build_firmware.log
+            build_littlefs.log
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: "🚀 Create GitHub Release"
+        if: >
+          github.event_name == 'push' &&
+          (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ env.FIRMWARE_VERSION }}-build.${{ github.run_number }}"
+          name: "IR Remote v${{ env.FIRMWARE_VERSION }} — Build #${{ github.run_number }}"
+          body: |
+            ## 🔧 IR Remote Web GUI v${{ env.FIRMWARE_VERSION }}
+            **Target:** ESP32-WROOM-32 (4 MB Flash)
+            **Commit:** `${{ github.sha }}`
+            **Build:** #${{ github.run_number }}
+
+            ---
+
+            ### ⚡ First Flash (USB — one time only)
+
+            **Linux / macOS:**
+            ```bash
+            pip install esptool
+            esptool.py --chip esp32 --port /dev/ttyUSB0 --baud 921600 \
+              write_flash \
+              0x1000   bootloader.bin \
+              0x8000   partitions.bin \
+              0x10000  firmware.bin \
+              0x2D0000 littlefs.bin
+            ```
+
+            **Windows:**
+            ```cmd
+            pip install esptool
+            esptool.py --chip esp32 --port COM3 --baud 921600 ^
+              write_flash ^
+              0x1000   bootloader.bin ^
+              0x8000   partitions.bin ^
+              0x10000  firmware.bin ^
+              0x2D0000 littlefs.bin
+            ```
+
+            > ⚠️ `littlefs.bin` must flash to `0x2D0000` (partition v5.0) — **not** the old `0x390000`.
+
+            ---
+
+            ### 📶 After Flashing
+            | | |
+            |---|---|
+            | **WiFi AP** | `IR-Remote` / `irremote123` |
+            | **Browser** | http://192.168.4.1 |
+
+            ### 🔄 OTA Updates (no USB needed after first flash)
+            - `firmware.bin` → Firmware OTA
+            - `littlefs.bin` → Filesystem OTA
+
+            ### 📦 Partition Layout v5.0
+            | Partition | Offset | Size |
+            |---|---|---|
+            | nvs | 0x009000 | 20 KB |
+            | otadata | 0x00E000 | 8 KB |
+            | app0 | 0x010000 | 1408 KB |
+            | app1 | 0x170000 | 1408 KB |
+            | spiffs (LittleFS) | **0x2D0000** | 752 KB |
+
+          files: |
+            release_bins/firmware.bin
+            release_bins/bootloader.bin
+            release_bins/partitions.bin
+            release_bins/littlefs.bin
+            release_bins/BUILD_INFO.txt
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
