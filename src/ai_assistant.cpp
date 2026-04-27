@@ -155,91 +155,62 @@ void AiAssistant::_addMessage(const String& role, const String& content) {
 // ── Tool definitions (sent to AI so it knows what it can do) ─
 String AiAssistant::_buildToolsJson() const {
     // OpenAI / Gemini format
-    return R"([
-  {
-    "type": "function",
-    "function": {
-      "name": "list_buttons",
-      "description": "List all saved IR remote buttons on the device. Returns button names, protocols, and IDs.",
-      "parameters": {"type": "object", "properties": {}, "required": []}
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "transmit_button",
-      "description": "Send an IR signal by button name or ID. Use this when the user wants to press a remote button, control a TV, AC, or any IR device.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "name": {"type": "string", "description": "Button name (e.g. 'TV Power', 'Volume Up')"},
-          "id":   {"type": "integer", "description": "Button ID number (use if name is ambiguous)"},
-          "repeat": {"type": "integer", "description": "Number of times to send (default 1)", "minimum": 1, "maximum": 10}
-        },
-        "required": []
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "get_device_status",
-      "description": "Get real-time device status: free heap, WiFi signal, CPU temperature, OTA space, uptime.",
-      "parameters": {"type": "object", "properties": {}, "required": []}
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "get_ir_log",
-      "description": "Get the last few IR signals received by the device sensor.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "limit": {"type": "integer", "description": "Max results (1-20, default 5)"}
-        },
-        "required": []
-      }
-    }
-  }
-])";
+    return
+        "[{"
+        "\"type\":\"function\","
+        "\"function\":{"
+        "\"name\":\"list_buttons\","
+        "\"description\":\"List all saved IR buttons. Returns names, protocols, IDs.\","
+        "\"parameters\":{\"type\":\"object\",\"properties\":{},\"required\":[]}"
+        "}},"
+        "{\"type\":\"function\","
+        "\"function\":{"
+        "\"name\":\"transmit_button\","
+        "\"description\":\"Send IR signal by button name or ID. Use when user wants to press a remote button.\","
+        "\"parameters\":{"
+        "\"type\":\"object\","
+        "\"properties\":{"
+        "\"name\":{\"type\":\"string\",\"description\":\"Button name\"},"
+        "\"id\":{\"type\":\"integer\",\"description\":\"Button ID\"},"
+        "\"repeat\":{\"type\":\"integer\",\"description\":\"Repeat count 1-10\"}"
+        "},\"required\":[]}}},"
+        "{\"type\":\"function\","
+        "\"function\":{"
+        "\"name\":\"get_device_status\","
+        "\"description\":\"Get device status: heap, WiFi RSSI, CPU temp, OTA space, uptime.\","
+        "\"parameters\":{\"type\":\"object\",\"properties\":{},\"required\":[]}"
+        "}},"
+        "{\"type\":\"function\","
+        "\"function\":{"
+        "\"name\":\"get_ir_log\","
+        "\"description\":\"Get recent IR signals received by sensor.\","
+        "\"parameters\":{"
+        "\"type\":\"object\","
+        "\"properties\":{"
+        "\"limit\":{\"type\":\"integer\",\"description\":\"Max results 1-20\"}"
+        "},\"required\":[]}}}]";
 }
 
 String AiAssistant::_buildAnthropicTools() const {
-    return R"([
-  {
-    "name": "list_buttons",
-    "description": "List all saved IR remote buttons. Returns names, protocols, IDs.",
-    "input_schema": {"type": "object", "properties": {}, "required": []}
-  },
-  {
-    "name": "transmit_button",
-    "description": "Send an IR signal by button name or ID. Use when user wants to press a remote button or control a device.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "name":   {"type": "string",  "description": "Button name"},
-        "id":     {"type": "integer", "description": "Button ID"},
-        "repeat": {"type": "integer", "description": "Repeat count (1-10)"}
-      }
-    }
-  },
-  {
-    "name": "get_device_status",
-    "description": "Get real-time device status: heap, WiFi, temperature, uptime.",
-    "input_schema": {"type": "object", "properties": {}, "required": []}
-  },
-  {
-    "name": "get_ir_log",
-    "description": "Get recent IR signals received by the sensor.",
-    "input_schema": {
-      "type": "object",
-      "properties": {
-        "limit": {"type": "integer", "description": "Max results 1-20"}
-      }
-    }
-  }
-])";
+    return
+        "[{\"name\":\"list_buttons\","
+        "\"description\":\"List all saved IR buttons. Returns names, protocols, IDs.\","
+        "\"input_schema\":{\"type\":\"object\",\"properties\":{},\"required\":[]}},"
+        "{\"name\":\"transmit_button\","
+        "\"description\":\"Send IR signal by button name or ID. Use when user wants to press a remote button.\","
+        "\"input_schema\":{\"type\":\"object\",\"properties\":{"
+        "\"name\":{\"type\":\"string\",\"description\":\"Button name\"},"
+        "\"id\":{\"type\":\"integer\",\"description\":\"Button ID\"},"
+        "\"repeat\":{\"type\":\"integer\",\"description\":\"Repeat count 1-10\"}"
+        "}}},"
+        "{\"name\":\"get_device_status\","
+        "\"description\":\"Get device status: heap, WiFi, temp, uptime.\","
+        "\"input_schema\":{\"type\":\"object\",\"properties\":{},\"required\":[]}},"
+        "{\"name\":\"get_ir_log\","
+        "\"description\":\"Get recent IR signals received by sensor.\","
+        "\"input_schema\":{\"type\":\"object\",\"properties\":{"
+        "\"limit\":{\"type\":\"integer\",\"description\":\"Max results 1-20\"}"
+        "}}}]";
 }
 
 // ── Tool dispatch — called when AI uses a tool ────────────
