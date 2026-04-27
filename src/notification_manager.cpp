@@ -352,9 +352,9 @@ void NotificationManager::_buzzerBeep(uint8_t times) {
     if (!_cfg.buzzerEnabled) return;
     for (uint8_t i = 0; i < times; i++) {
         digitalWrite(_cfg.buzzerPin, HIGH);
-        delay(150);
+        vTaskDelay(pdMS_TO_TICKS(150));   // hardware timing for buzzer
         digitalWrite(_cfg.buzzerPin, LOW);
-        if (i + 1 < times) delay(100);
+        if (i + 1 < times) vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 

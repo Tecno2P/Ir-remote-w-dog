@@ -620,13 +620,18 @@ void WebUI::setupModuleRoutes() {
 
     POST_BODY_MOD("/api/system/reboot", [](AsyncWebServerRequest* req, uint8_t* d, size_t l) {
         _sendJson(req, 200, "{\"ok\":true}");
-        delay(300);
-        ESP.restart();
+        // Deferred restart — lets HTTP response transmit before reset
+        extern portMUX_TYPE s_restartMux;
+        extern volatile uint32_t s_restartAt;
+        taskENTER_CRITICAL(&s_restartMux);
+        s_restartAt = (uint32_t)(millis() + 1200);
+        taskEXIT_CRITICAL(&s_restartMux);
     });
 
     POST_BODY_MOD("/api/system/reset", [](AsyncWebServerRequest* req, uint8_t* d, size_t l) {
         _sendJson(req, 200, "{\"ok\":true}");
-        delay(300);
+        // Small yield to allow response to send before erasing storage
+        vTaskDelay(pdMS_TO_TICKS(50));
         // Erase NVS + LittleFS then restart
         LittleFS.format();
         ESP.restart();

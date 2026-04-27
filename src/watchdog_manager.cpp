@@ -213,7 +213,7 @@ void WatchdogManager::tryMemoryCleanup() {
     // by yielding to the FreeRTOS scheduler
     for (int i = 0; i < 5; i++) {
         yield();
-        vTaskDelay(1);
+        vTaskDelay(pdMS_TO_TICKS(1));  // yield 1ms to RTOS
     }
     // Log result
     Serial.printf(WDT_TAG " Memory cleanup done. Heap now: %u bytes\n",

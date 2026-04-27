@@ -224,8 +224,8 @@ String AiAssistant::_dispatchTool(const String& name, const JsonObjectConst& arg
             JsonObject b = arr.add<JsonObject>();
             b["id"]       = (int)btn.id;
             b["name"]     = btn.name;
-            b["protocol"] = btn.protocol; // enum value
-            b["freqKHz"]  = btn.freqKHz;
+            b["protocol"] = (int)btn.protocol;  // FIX: cast enum to int for ArduinoJson
+            b["freqKHz"]  = (int)btn.freqKHz;
         }
         resp["count"] = (int)irDB.buttons().size();
 
@@ -237,25 +237,41 @@ String AiAssistant::_dispatchTool(const String& name, const JsonObjectConst& arg
         if (repeat < 1) repeat = 1;
         if (repeat > 10) repeat = 10;
 
-        const IRButton* found = nullptr;
+        // FIX: findById returns IRButton by value (not pointer)
+        // FIX: findByName does not exist — search manually through buttons()
+        bool    foundBtn  = false;
+        IRButton foundObj;  // holds the found button by value
+
         if (btnId >= 0) {
-            found = irDB.findById((uint32_t)btnId);
-        } else if (!btnName.isEmpty()) {
-            found = irDB.findByName(btnName);
+            // findById returns IRButton by value; check id != 0 to detect not-found
+            IRButton candidate = irDB.findById((uint32_t)btnId);
+            if (candidate.id != 0) { foundObj = candidate; foundBtn = true; }
+        }
+        if (!foundBtn && !btnName.isEmpty()) {
+            // Manual name search (case-insensitive)
+            String lowerTarget = btnName;
+            lowerTarget.toLowerCase();
+            for (const auto& btn : irDB.buttons()) {
+                String lowerName = btn.name;
+                lowerName.toLowerCase();
+                if (lowerName == lowerTarget || btn.name == btnName) {
+                    foundObj = btn; foundBtn = true; break;
+                }
+            }
         }
 
-        if (!found) {
+        if (!foundBtn) {
             resp["ok"]    = false;
-            resp["error"] = String("Button not found: '") + btnName + "' / id=" + btnId;
+            resp["error"] = String("Button not found: '") + btnName + "' id=" + btnId;
         } else {
             bool ok = true;
             for (int i = 0; i < repeat && ok; i++) {
-                ok = irTransmitter.transmit(*found);
-                if (i < repeat - 1) delay(200);
+                ok = irTransmitter.transmit(foundObj);
+                if (i < repeat - 1) vTaskDelay(pdMS_TO_TICKS(200));
             }
             resp["ok"]       = ok;
-            resp["name"]     = found->name;
-            resp["id"]       = (int)found->id;
+            resp["name"]     = foundObj.name;
+            resp["id"]       = (int)foundObj.id;
             resp["repeated"] = repeat;
         }
 
