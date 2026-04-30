@@ -32,9 +32,9 @@
 #endif
 
 // Hard cap: reject firmware larger than this regardless of partition size.
-// Set to 1380 KB — 28 KB margin under 1408 KB partition for safety.
+// Set to 1600 KB — 64 KB margin under 1664 KB partition for safety.
 #ifndef OTA_MAX_FIRMWARE_BYTES
-  #define OTA_MAX_FIRMWARE_BYTES  (1380UL * 1024UL)
+  #define OTA_MAX_FIRMWARE_BYTES  (1600UL * 1024UL)
 #endif
 
 // Minimum LittleFS free bytes required before allowing OTA.

@@ -16,9 +16,9 @@ env:
   PIO_ENV: esp32dev
   PIO_VERSION: "6.1.16"
   # Partition layout v5.0 — must match partitions_custom.csv exactly
-  APP_PART_KB: "1408"
-  FS_PART_KB:  "752"
-  FS_ADDR:     "0x2D0000"
+  APP_PART_KB: "1664"
+  FS_PART_KB:  "704"
+  FS_ADDR:     "0x350000"
 
 jobs:
   build:
@@ -70,9 +70,9 @@ jobs:
           parts = [
               ('nvs',     0x9000,   0x5000),
               ('otadata', 0xe000,   0x2000),
-              ('app0',    0x10000,  0x160000),
-              ('app1',    0x170000, 0x160000),
-              ('spiffs',  0x2D0000, 0xBC000),
+              ('app0',    0x10000,  0x1A0000),
+              ('app1',    0x1B0000, 0x1A0000),
+              ('spiffs',  0x350000, 0xB0000),
           ]
           FLASH = 4 * 1024 * 1024
           ok = True
@@ -168,15 +168,15 @@ jobs:
           Partition layout v5.0:
             nvs       0x009000   20 KB
             otadata   0x00E000    8 KB
-            app0      0x010000 1408 KB  ← firmware slot
-            app1      0x170000 1408 KB  ← OTA slot
-            spiffs    0x2D0000  752 KB  ← LittleFS
+            app0      0x010000 1664 KB  ← firmware slot
+            app1      0x1B0000 1664 KB  ← OTA slot
+            spiffs    0x350000  704 KB  ← LittleFS
 
           Flash addresses (esptool):
             0x1000   bootloader.bin
             0x8000   partitions.bin
             0x10000  firmware.bin
-            0x2D0000 littlefs.bin
+            0x350000 littlefs.bin
           EOF
           ls -lh release_bins/
 
@@ -225,7 +225,7 @@ jobs:
               0x1000   bootloader.bin \
               0x8000   partitions.bin \
               0x10000  firmware.bin \
-              0x2D0000 littlefs.bin
+              0x350000 littlefs.bin
             ```
 
             **Windows:**
@@ -236,10 +236,10 @@ jobs:
               0x1000   bootloader.bin ^
               0x8000   partitions.bin ^
               0x10000  firmware.bin ^
-              0x2D0000 littlefs.bin
+              0x350000 littlefs.bin
             ```
 
-            > ⚠️ `littlefs.bin` must flash to `0x2D0000` (partition v5.0) — **not** the old `0x390000`.
+            > ⚠️ `littlefs.bin` must flash to `0x350000` (partition v6.0) — **not** the old `0x2D0000` or `0x390000`.
 
             ---
 
@@ -259,8 +259,8 @@ jobs:
             | nvs | 0x009000 | 20 KB |
             | otadata | 0x00E000 | 8 KB |
             | app0 | 0x010000 | 1408 KB |
-            | app1 | 0x170000 | 1408 KB |
-            | spiffs (LittleFS) | **0x2D0000** | 752 KB |
+            | app1 | 0x1B0000 | 1664 KB |
+            | spiffs (LittleFS) | **0x350000** | 704 KB |
 
           files: |
             release_bins/firmware.bin

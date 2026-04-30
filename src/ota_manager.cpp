@@ -4,7 +4,7 @@
 //  PERMANENT OTA STORAGE-FULL FIX:
 //
 //  Previous code used ESP.getFreeSketchSpace() which always returns
-//  the partition SIZE (1408 KB), never actual free/usable space.
+//  the partition SIZE (1664 KB), never actual free/usable space.
 //  It cannot detect: no valid OTA partition, corrupted otadata,
 //  wrong boot slot, or firmware genuinely too large.
 //
@@ -86,7 +86,7 @@ bool OtaManager::_validateBeforeUpdate(size_t declaredSize, const String& target
         // Only check LittleFS is not critically full (it will be unmounted anyway).
         // No flash-space check needed — Update library handles spiffs partition directly.
         Serial.printf(DEBUG_TAG " OTA: filesystem update — spiffs partition at 0x%06X\n",
-                      0x2D0000);
+                      0x350000);
         return true;
     }
 
